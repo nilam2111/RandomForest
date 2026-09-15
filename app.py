@@ -44,20 +44,32 @@ st.markdown("""
         box-shadow: 0 6px 20px 0 rgba(168, 85, 247, 0.6);
         background: linear-gradient(90deg, #4f46e5 0%, #9333ea 100%);
     }
-    .stAlert {
-        border-radius: 10px;
+    .result-card {
+        padding: 24px;
+        border-radius: 12px;
+        text-align: center;
+        font-size: 28px;
+        font-weight: bold;
+        margin-top: 15px;
+    }
+    .result-yes {
+        background-color: #064e3b;
+        color: #34d399;
+        border: 2px solid #10b981;
+    }
+    .result-no {
+        background-color: #7f1d1d;
+        color: #fca5a5;
+        border: 2px solid #ef4444;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Load the trained model and encoders
+# Load trained model
 @st.cache_resource
 def load_assets():
     with open("model.pkl", "rb") as f:
         model = pickle.load(f)
-    # Optional: Load fitted encoder if saved during training
-    # with open("encoder.pkl", "rb") as f:
-    #     encoder = pickle.load(f)
     return model
 
 try:
@@ -71,7 +83,7 @@ st.title("🔮 Customer Prediction Dashboard")
 st.caption("Provide customer demographics below to generate target predictions using the loaded model.")
 st.markdown("---")
 
-# Main Form Layout
+# Form Layout
 with st.form("prediction_form"):
     col1, col2 = st.columns(2, gap="large")
     
@@ -103,9 +115,9 @@ if submit_btn:
     st.snow()
     
     with st.spinner("Analyzing input patterns and running prediction..."):
-        time.sleep(1.2)
+        time.sleep(1)
         
-        # Define manual mappings matching the exact encoding used during model training
+        # Encoding mapping
         gender_map = {"Male": 0, "Female": 1, "Other": 2}
         marital_map = {"Single": 0, "Married": 1, "Divorced": 2}
         occupation_map = {"Student": 0, "Employee": 1, "Self Employed": 2, "Unemployed": 3, "Housewife": 4}
@@ -113,7 +125,6 @@ if submit_btn:
         education_map = {"Under Graduate": 0, "Post Graduate": 1, "School": 2, "Ph.D": 3, "Uneducated": 4}
         customer_type_map = {"Direct": 0, "Indirect": 1, "Walk-in": 2, "Online": 3}
 
-        # Encode input features into numeric values
         input_data = pd.DataFrame([{
             'Age': age,
             'Gender': gender_map[gender],
@@ -126,27 +137,23 @@ if submit_btn:
         }])
         
         try:
-            prediction = model.predict(input_data)[0]
+            raw_prediction = model.predict(input_data)[0]
             
-            if hasattr(model, "predict_proba"):
-                probs = model.predict_proba(input_data)[0]
-                classes = model.classes_
+            # Map output strictly to YES or NO
+            if str(raw_prediction).lower() in ["1", "yes", "true"]:
+                final_output = "YES"
             else:
-                probs = None
+                final_output = "NO"
 
             st.markdown("---")
             st.subheader("🎯 Result")
 
-            if str(prediction).lower() in ["yes", "1", "true"]:
+            # Display styled Yes/No Output
+            if final_output == "YES":
                 st.balloons()
-                st.success(f"**Prediction Outcome:** {prediction}")
+                st.markdown('<div class="result-card result-yes">Prediction Output: YES</div>', unsafe_allow_html=True)
             else:
-                st.info(f"**Prediction Outcome:** {prediction}")
-
-            if probs is not None:
-                st.write("**Prediction Probabilities:**")
-                prob_df = pd.DataFrame([probs], columns=classes)
-                st.bar_chart(prob_df.T)
+                st.markdown('<div class="result-card result-no">Prediction Output: NO</div>', unsafe_allow_html=True)
 
         except Exception as err:
             st.error(f"Error during prediction: {err}")
