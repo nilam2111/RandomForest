@@ -12,34 +12,21 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for layout, animations, and button styling
+# Custom CSS for styling
 st.markdown("""
 <style>
-    /* Main container background */
     .stApp {
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
         color: #f8fafc;
     }
-    
-    /* Sidebar styling */
     section[data-testid="stSidebar"] {
         background-color: #020617 !important;
         border-right: 1px solid #1e293b;
     }
-
-    /* Headings */
     h1, h2, h3 {
         color: #f1f5f9 !important;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
-    
-    /* Input field cards */
-    .css-1r6slb0, .stSelectbox, .stNumberInput {
-        background-color: #1e293b;
-        border-radius: 8px;
-    }
-    
-    /* Custom styled Predict Button */
     div.stButton > button:first-child {
         background: linear-gradient(90deg, #6366f1 0%, #a855f7 100%);
         color: #ffffff;
@@ -52,36 +39,36 @@ st.markdown("""
         transition: all 0.3s ease-in-out;
         width: 100%;
     }
-    
     div.stButton > button:first-child:hover {
         transform: translateY(-2px);
         box-shadow: 0 6px 20px 0 rgba(168, 85, 247, 0.6);
         background: linear-gradient(90deg, #4f46e5 0%, #9333ea 100%);
     }
-
-    /* Success / Warning banner enhancements */
     .stAlert {
         border-radius: 10px;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Load the trained model
+# Load the trained model and encoders
 @st.cache_resource
-def load_model():
+def load_assets():
     with open("model.pkl", "rb") as f:
         model = pickle.load(f)
+    # Optional: Load fitted encoder if saved during training
+    # with open("encoder.pkl", "rb") as f:
+    #     encoder = pickle.load(f)
     return model
 
 try:
-    model = load_model()
+    model = load_assets()
 except Exception as e:
-    st.error(f"Error loading `model.pkl`: {e}")
+    st.error(f"Error loading model assets: {e}")
     st.stop()
 
 # Header Section
 st.title("🔮 Customer Prediction Dashboard")
-st.caption("Provide customer demographics below to generate target predictions using the loaded RandomForest model.")
+st.caption("Provide customer demographics below to generate target predictions using the loaded model.")
 st.markdown("---")
 
 # Main Form Layout
@@ -111,31 +98,36 @@ with st.form("prediction_form"):
     st.markdown("<br>", unsafe_allow_html=True)
     submit_btn = st.form_submit_button("🚀 Generate Prediction")
 
-# Prediction Logic and Visual Effects
+# Prediction Logic
 if submit_btn:
-    # Trigger visual effect: Snow/Balloons + Spinner
     st.snow()
     
     with st.spinner("Analyzing input patterns and running prediction..."):
-        time.sleep(1.2)  # Short artificial delay to emphasize effect
+        time.sleep(1.2)
         
-        # Format input data matching the feature order in model.pkl:
-        # ['Age', 'Gender', 'Marital Status', 'Occupation', 'Monthly Income', 'Educational Qualifications', 'Family size', 'Customer Type']
+        # Define manual mappings matching the exact encoding used during model training
+        gender_map = {"Male": 0, "Female": 1, "Other": 2}
+        marital_map = {"Single": 0, "Married": 1, "Divorced": 2}
+        occupation_map = {"Student": 0, "Employee": 1, "Self Employed": 2, "Unemployed": 3, "Housewife": 4}
+        income_map = {"No Income": 0, "Below Rs.10000": 1, "10001 to 25000": 2, "25001 to 50000": 3, "More than 50000": 4}
+        education_map = {"Under Graduate": 0, "Post Graduate": 1, "School": 2, "Ph.D": 3, "Uneducated": 4}
+        customer_type_map = {"Direct": 0, "Indirect": 1, "Walk-in": 2, "Online": 3}
+
+        # Encode input features into numeric values
         input_data = pd.DataFrame([{
             'Age': age,
-            'Gender': gender,
-            'Marital Status': marital_status,
-            'Occupation': occupation,
-            'Monthly Income': monthly_income,
-            'Educational Qualifications': education,
+            'Gender': gender_map[gender],
+            'Marital Status': marital_map[marital_status],
+            'Occupation': occupation_map[occupation],
+            'Monthly Income': income_map[monthly_income],
+            'Educational Qualifications': education_map[education],
             'Family size': family_size,
-            'Customer Type': customer_type
+            'Customer Type': customer_type_map[customer_type]
         }])
         
         try:
             prediction = model.predict(input_data)[0]
             
-            # Predict probabilities if supported
             if hasattr(model, "predict_proba"):
                 probs = model.predict_proba(input_data)[0]
                 classes = model.classes_
@@ -158,4 +150,3 @@ if submit_btn:
 
         except Exception as err:
             st.error(f"Error during prediction: {err}")
-            st.info("Make sure categorical values are pre-encoded if your model expects numerical features directly.")
